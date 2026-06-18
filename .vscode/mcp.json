@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "code-review-graph": {
+      "command": "/Users/bindukondaveeti/Documents/anaconda/anaconda3/bin/python",
+      "args": [
+        "-m",
+        "code_review_graph",
+        "serve"
+      ],
+      "cwd": "/Users/bindukondaveeti/Desktop/Buildathon",
+      "type": "stdio"
+    }
+  }
+}
