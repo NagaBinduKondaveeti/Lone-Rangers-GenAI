@@ -299,9 +299,9 @@ if page == "🏠  Fleet Overview":
                 hovertemplate='<b>Truck %{x}</b><br><b>$%{y:,.0f}</b><extra></extra>',
             ))
             dark_layout(fig, 300)
-            fig.update_layout(showlegend=False, title=None)
-            fig.update_xaxes(title_text=None)
-            fig.update_yaxes(tickprefix='$', tickformat=',.0f', title_text=None)
+            fig.update_layout(showlegend=False, title=dict(text=''))
+            fig.update_xaxes(title_text='')
+            fig.update_yaxes(tickprefix='$', tickformat=',.0f', title_text='')
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
     with col2:
