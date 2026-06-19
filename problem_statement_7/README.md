@@ -1,8 +1,23 @@
 # FleetOS — AI-Powered Fleet Document Intelligence
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Streamlit-FF6B2B?style=for-the-badge&logo=streamlit&logoColor=white)](https://lone-rangers-genai-dd5zcragxffhxogdcsvbmp.streamlit.app)
+[![GitHub](https://img.shields.io/badge/GitHub-Lone--Rangers--GenAI-181717?style=for-the-badge&logo=github)](https://github.com/NagaBinduKondaveeti/Lone-Rangers-GenAI)
+
 > **Hackathon Project | Data Pipeline Track | Databricks**
 >
 > Sunflower Freight Lines LLC has 197 fleet documents buried in filing cabinets and email threads — nothing searchable, nothing linked. FleetOS turns that chaos into a living, queryable knowledge base operators can ask questions in plain English.
+
+## Live Demo
+
+**[https://lone-rangers-genai-dd5zcragxffhxogdcsvbmp.streamlit.app](https://lone-rangers-genai-dd5zcragxffhxogdcsvbmp.streamlit.app)**
+
+> Ask questions like:
+> - *"When does truck 84's insurance expire?"*
+> - *"Which truck costs the most to maintain?"*
+> - *"Which driver's CDL expires soonest?"*
+> - *"Show all maintenance on truck 62"*
+
+---
 
 ---
 
