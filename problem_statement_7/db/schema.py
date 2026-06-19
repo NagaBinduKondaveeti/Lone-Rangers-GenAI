@@ -65,6 +65,7 @@ def init_schema():
             MAX(date) FILTER (WHERE doc_type = 'maintenance_invoice') AS last_service_date,
             MAX(expiry_date) FILTER (WHERE doc_type = 'insurance') AS insurance_expiry,
             MAX(expiry_date) FILTER (WHERE doc_type = 'cdl') AS cdl_expiry,
+            MAX(driver_name) FILTER (WHERE doc_type = 'cdl') AS driver_name,
             MIN(date) FILTER (WHERE doc_type = 'bill_of_sale_purchase') AS purchase_date,
             MAX(amount_total) FILTER (WHERE doc_type = 'bill_of_sale_purchase') AS purchase_price
         FROM silver_documents
@@ -105,5 +106,19 @@ def init_schema():
         ORDER BY expiry_date
     """)
 
+
+    # Cross-reference: fill NULL truck_unit via VIN match with other doc types
+    con.execute("""
+        UPDATE silver_documents
+        SET truck_unit = (
+            SELECT MIN(s2.truck_unit)
+            FROM silver_documents s2
+            WHERE s2.vin = silver_documents.vin
+              AND s2.truck_unit IS NOT NULL
+              AND s2.doc_type != silver_documents.doc_type
+        )
+        WHERE truck_unit IS NULL
+          AND vin IS NOT NULL
+    """)
     con.close()
     print("[DB] Schema initialized")

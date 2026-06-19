@@ -23,7 +23,7 @@ doc_type values: bill_of_sale_purchase | bill_of_sale_sale | cdl | insurance |
 
 VIEW gold_truck_summary:
   truck_unit, maintenance_count, total_maintenance_cost, last_service_date,
-  insurance_expiry, cdl_expiry, purchase_date, purchase_price
+  insurance_expiry, cdl_expiry, driver_name, purchase_date, purchase_price
 
 VIEW gold_monthly_spend:
   month (DATE), truck_unit, category, total_spend, invoice_count
