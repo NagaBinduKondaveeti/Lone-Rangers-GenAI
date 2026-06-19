@@ -37,6 +37,13 @@ def _parse_int(val):
 def upsert_document(entities: dict):
     _ensure_init()
     con = get_conn()
+    try:
+        _do_upsert(con, entities)
+    finally:
+        con.close()
+
+
+def _do_upsert(con, entities: dict):
 
     filename  = entities.get("filename", "")
     raw_text  = entities.get("raw_text", "")
@@ -88,4 +95,3 @@ def upsert_document(entities: dict):
         _parse_int(entities.get("odometer")),
         json.dumps(entities),
     ])
-    con.close()

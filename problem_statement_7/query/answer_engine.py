@@ -65,5 +65,5 @@ def answer(question: str) -> dict:
         "strategy": strategy,
         "answer":   resp.choices[0].message.content.strip(),
         "sql":      sql_result,
-        "sources":  list({c["metadata"]["filename"] for c in rag_chunks}),
+        "sources":  list({c["metadata"].get("filename","unknown") for c in rag_chunks}),
     }

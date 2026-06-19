@@ -60,10 +60,12 @@ def run_sql_query(question: str) -> dict:
     sql = resp.choices[0].message.content.strip().rstrip(";")
     # Strip markdown if model added it
     if sql.startswith("```"):
-        sql = sql.split("```")[1].lstrip("sql").strip().rstrip("`")
+        sql = sql.split("```")[1].split("\n", 1)[-1].strip()
 
+    if not sql.strip().upper().startswith("SELECT"):
+        return {"sql": sql, "rows": [], "columns": [], "error": "Only SELECT queries are permitted"}
     try:
-        con = duckdb.connect(DB_PATH)
+        con = duckdb.connect(DB_PATH, read_only=True)
         df  = con.execute(sql).df()
         con.close()
         return {"sql": sql, "rows": df.to_dict(orient="records"),

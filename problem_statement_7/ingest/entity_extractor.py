@@ -37,8 +37,8 @@ def _classify(text):
     if 'EQUIPMENT LEASE AGREEMENT' in t or 'MOTOR VEHICLE / EQUIPMENT LEASE' in t: return 'lease_agreement'
     if 'BILL OF SALE' in t:
         return 'bill_of_sale_sale' if ('(SALE)' in t or 'SALE\nMOTOR' in t) and 'PURCHASE' not in t else 'bill_of_sale_purchase'
-    if 'INVOICE' in t:                                 return 'maintenance_invoice'
     if 'FUEL' in t and 'RECEIPT' in t:                 return 'fuel_receipt'
+    if 'INVOICE' in t:                                 return 'maintenance_invoice'
     return 'unknown'
 
 def _bill_of_sale(text):
@@ -115,9 +115,10 @@ def _irp(text):
     vins = VIN_RE.findall(text)
     yr   = re.search(r'KS\s+(\d{4})', text)
     return {
-        'vin':      vins[0] if vins else None,
-        'plate_no': _first(r'LICENSE PLATE NO\.\s+([A-Z0-9\-]+)', text),
-        'year':     int(yr.group(1)) if yr else None,
+        'truck_unit': _first(r'UNIT\s*[#\s]*(\d+)', text),
+        'vin':        vins[0] if vins else None,
+        'plate_no':   _first(r'LICENSE PLATE NO\.\s+([A-Z0-9\-]+)', text),
+        'year':       int(yr.group(1)) if yr else None,
     }
 
 def _title(text):

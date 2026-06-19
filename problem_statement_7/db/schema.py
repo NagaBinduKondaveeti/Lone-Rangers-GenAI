@@ -70,7 +70,7 @@ def init_schema():
         FROM silver_documents
         WHERE truck_unit IS NOT NULL AND truck_unit != ''
         GROUP BY truck_unit
-        ORDER BY CAST(truck_unit AS INTEGER) NULLS LAST
+        ORDER BY TRY_CAST(truck_unit AS INTEGER) NULLS LAST
     """)
 
     # Gold: monthly spend

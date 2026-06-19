@@ -9,7 +9,6 @@
 # COMMAND ----------
 from openai import OpenAI
 import json
-from chromadb import Client
 from chromadb.utils import embedding_functions
 
 NVIDIA_API_KEY  = dbutils.secrets.get("fleet-os", "nvidia_api_key")
@@ -30,7 +29,7 @@ def nim(system, user, max_tokens=1024):
     return resp.choices[0].message.content.strip()
 
 # Build vector index from silver documents
-chroma_client = Client()
+chroma_client = chromadb.EphemeralClient()
 ef = embedding_functions.SentenceTransformerEmbeddingFunction("all-MiniLM-L6-v2")
 collection = chroma_client.get_or_create_collection("fleet_docs", embedding_function=ef)
 
@@ -42,10 +41,11 @@ print(f"\u2713 Indexed {len(docs)} documents in ChromaDB")
 
 # COMMAND ----------
 def fleet_query(question: str) -> str:
-    strategy = nim(
+    _parts = nim(
         "Reply with exactly one word: sql, rag, or hybrid",
         question, max_tokens=10
-    ).lower().split()[0]
+    ).lower().split()
+    strategy = _parts[0] if _parts and _parts[0] in ("sql","rag","hybrid") else "hybrid"
 
     context_parts = []
 

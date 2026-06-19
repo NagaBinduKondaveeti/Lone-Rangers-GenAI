@@ -1,6 +1,6 @@
 """FleetOS Dashboard — Streamlit UI."""
-import sys
-sys.path.insert(0, ".")
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import streamlit as st
 import duckdb
@@ -23,9 +23,9 @@ st.set_page_config(
 def get_conn():
     return duckdb.connect(DB_PATH, read_only=True)
 
-def q(sql):
+def q(sql, params=None):
     try:
-        return get_conn().execute(sql).df()
+        return get_conn().execute(sql, params or []).df()
     except Exception as e:
         return pd.DataFrame()
 
@@ -166,22 +166,27 @@ elif page == "📄 Documents":
         search_text = st.text_input("Search", "")
 
     sql = "SELECT filename, doc_type, truck_unit, vin, date, amount_total, vendor, driver_name, expiry_date FROM silver_documents WHERE 1=1"
+    params = []
     if type_filter != "All":
-        sql += f" AND doc_type = '{type_filter}'"
+        sql += " AND doc_type = ?"
+        params.append(type_filter)
     if truck_filter != "All":
-        sql += f" AND truck_unit = '{truck_filter}'"
+        sql += " AND truck_unit = ?"
+        params.append(truck_filter)
     if search_text:
-        sql += f" AND (filename ILIKE '%{search_text}%' OR vendor ILIKE '%{search_text}%' OR driver_name ILIKE '%{search_text}%')"
+        sql += " AND (filename ILIKE ? OR vendor ILIKE ? OR driver_name ILIKE ?)"
+        like = f"%{search_text}%"
+        params.extend([like, like, like])
     sql += " ORDER BY date DESC NULLS LAST LIMIT 200"
 
-    df = q(sql)
+    df = q(sql, params)
     st.write(f"**{len(df)} documents**")
     if not df.empty:
         st.dataframe(df, use_container_width=True, hide_index=True)
 
         selected = st.selectbox("View document text:", ["—"] + list(df["filename"]))
         if selected != "—":
-            raw = q(f"SELECT raw_text FROM bronze_documents WHERE filename = '{selected}'")
+            raw = q("SELECT raw_text FROM bronze_documents WHERE filename = ?", [selected])
             if not raw.empty:
                 st.text_area("Raw Document Text", raw["raw_text"].iloc[0], height=400)
 

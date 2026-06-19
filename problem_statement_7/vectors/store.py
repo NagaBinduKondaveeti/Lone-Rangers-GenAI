@@ -1,23 +1,27 @@
 """ChromaDB vector store with sentence-transformers embeddings."""
+import threading
 import chromadb
 from chromadb.utils import embedding_functions
 from config import CHROMA_PATH
 
-_client = None
+_lock       = threading.Lock()
+_client     = None
 _collection = None
 
 def _get_collection():
     global _client, _collection
     if _collection is None:
-        _client = chromadb.PersistentClient(path=CHROMA_PATH)
-        ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="all-MiniLM-L6-v2"
-        )
-        _collection = _client.get_or_create_collection(
-            name="fleet_docs",
-            embedding_function=ef,
-            metadata={"hnsw:space": "cosine"}
-        )
+        with _lock:
+            if _collection is None:
+                _client = chromadb.PersistentClient(path=CHROMA_PATH)
+                ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                    model_name="all-MiniLM-L6-v2"
+                )
+                _collection = _client.get_or_create_collection(
+                    name="fleet_docs",
+                    embedding_function=ef,
+                    metadata={"hnsw:space": "cosine"}
+                )
     return _collection
 
 
@@ -34,6 +38,7 @@ def add_document(doc_id: str, text: str, metadata: dict):
 
 def search(query: str, n_results: int = 5, where: dict = None) -> list[dict]:
     col = _get_collection()
+    n_results = min(n_results, col.count()) if col.count() > 0 else 1
     kwargs = {"query_texts": [query], "n_results": n_results}
     if where:
         kwargs["where"] = where
