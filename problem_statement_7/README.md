@@ -185,7 +185,7 @@ Stage 2: Loading into DuckDB + ChromaDB...
 streamlit run dashboard/app.py
 ```
 
-Open http://localhost:8501
+Open http://localhost:8501 or visit the live deployment at https://lone-rangers-genai-dd5zcragxffhxogdcsvbmp.streamlit.app
 
 ---
 
