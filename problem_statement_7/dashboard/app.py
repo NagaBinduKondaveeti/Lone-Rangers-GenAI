@@ -235,8 +235,8 @@ with st.sidebar:
     ], label_visibility="collapsed")
 
     st.markdown("""
-    <div style="position:absolute;bottom:20px;left:0;right:0;padding:0 16px;">
-      <div style="height:1px;background:linear-gradient(90deg,transparent,#FF6B2B33,transparent);margin-bottom:12px;"></div>
+    <div style="margin-top:24px;padding:12px 16px 0;">
+      <div style="height:1px;background:linear-gradient(90deg,transparent,#FF6B2B33,transparent);margin-bottom:10px;"></div>
       <div style="font-size:9px;color:#1E2E44;letter-spacing:.16em;text-transform:uppercase;text-align:center;">
         197 PDFs · 9 doc types · AI-powered
       </div>
