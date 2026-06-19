@@ -1,6 +1,8 @@
 """FleetOS Dashboard — Streamlit UI."""
 import sys, os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_here = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _here)
+sys.path.insert(0, os.path.dirname(_here))
 
 import streamlit as st
 import duckdb
