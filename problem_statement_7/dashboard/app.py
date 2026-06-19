@@ -167,7 +167,9 @@ elif page == "📄 Documents":
     with c3:
         search_text = st.text_input("Search", "")
 
-    sql = "SELECT filename, doc_type, truck_unit, vin, date, amount_total, vendor, driver_name, expiry_date FROM silver_documents WHERE 1=1"
+    # All columns — shown selectively based on which are non-null for the result
+    ALL_COLS = "filename, doc_type, truck_unit, vin, date, expiry_date, amount_total, vendor, driver_name, policy_no, make, model, year, plate_no, category, technician, buyer_name, seller_name, odometer"
+    sql = f"SELECT {ALL_COLS} FROM silver_documents WHERE 1=1"
     params = []
     if type_filter != "All":
         sql += " AND doc_type = ?"
@@ -184,7 +186,9 @@ elif page == "📄 Documents":
     df = q(sql, params)
     st.write(f"**{len(df)} documents**")
     if not df.empty:
-        st.dataframe(df, use_container_width=True, hide_index=True)
+        # Drop columns that are entirely null for the current filter — keeps table clean
+        df_display = df.dropna(axis=1, how="all")
+        st.dataframe(df_display, use_container_width=True, hide_index=True)
 
         selected = st.selectbox("View document text:", ["—"] + list(df["filename"]))
         if selected != "—":
