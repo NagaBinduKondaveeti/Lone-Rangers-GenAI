@@ -4,7 +4,7 @@
 # MAGIC Ingest raw PDFs into Delta Lake bronze table
 
 # COMMAND ----------
-# MAGIC %pip install pdfplumber anthropic chromadb sentence-transformers
+# MAGIC %pip install pdfplumber openai chromadb sentence-transformers
 
 # COMMAND ----------
 import os, json

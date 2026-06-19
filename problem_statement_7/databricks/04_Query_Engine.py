@@ -1,21 +1,33 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # FleetOS — Query Engine (Hybrid SQL + RAG)
-# MAGIC Interactive query interface for Databricks
+# MAGIC Interactive query interface powered by NVIDIA NIM (Llama-3.1-70b)
 
 # COMMAND ----------
-# MAGIC %pip install anthropic chromadb sentence-transformers
+# MAGIC %pip install openai chromadb sentence-transformers
 
 # COMMAND ----------
-import anthropic, json
+from openai import OpenAI
+import json
 from chromadb import Client
 from chromadb.utils import embedding_functions
 
-ANTHROPIC_API_KEY = dbutils.secrets.get("fleet-os", "anthropic_api_key")
-MODEL = "claude-sonnet-4-6"
-CATALOG = "fleet_os"
+NVIDIA_API_KEY  = dbutils.secrets.get("fleet-os", "nvidia_api_key")
+MODEL           = "meta/llama-3.1-70b-instruct"
+CATALOG         = "fleet_os"
 
-client_ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+client_ai = OpenAI(
+    api_key=NVIDIA_API_KEY,
+    base_url="https://integrate.api.nvidia.com/v1"
+)
+
+def nim(system, user, max_tokens=1024):
+    resp = client_ai.chat.completions.create(
+        model=MODEL, max_tokens=max_tokens, temperature=0.0,
+        messages=[{"role":"system","content":system},
+                  {"role":"user","content":user}]
+    )
+    return resp.choices[0].message.content.strip()
 
 # Build vector index from silver documents
 chroma_client = Client()
@@ -26,32 +38,26 @@ docs = spark.table(f"{CATALOG}.bronze.raw_documents").collect()
 for row in docs[:200]:
     collection.upsert(ids=[row.filename], documents=[row.raw_text[:2000]],
                       metadatas=[{"filename": row.filename}])
-print(f"✓ Indexed {len(docs)} documents in ChromaDB")
+print(f"\u2713 Indexed {len(docs)} documents in ChromaDB")
 
 # COMMAND ----------
 def fleet_query(question: str) -> str:
-    # Route
-    route_msg = client_ai.messages.create(
-        model=MODEL, max_tokens=10,
-        system="Reply with exactly one word: sql, rag, or hybrid",
-        messages=[{"role":"user","content": question}]
-    )
-    strategy = route_msg.content[0].text.strip().lower()
+    strategy = nim(
+        "Reply with exactly one word: sql, rag, or hybrid",
+        question, max_tokens=10
+    ).lower().split()[0]
 
     context_parts = []
 
     if strategy in ("sql", "hybrid"):
-        sql_msg = client_ai.messages.create(
-            model=MODEL, max_tokens=512,
-            system=f"""Generate DuckDB/Spark SQL for fleet_os.silver.documents and gold tables.
+        sql = nim(
+            f"""Generate Spark SQL for {CATALOG} tables.
 Tables: silver.documents, gold.truck_summary, gold.monthly_spend, gold.expiring_documents
-Return only SQL.""",
-            messages=[{"role":"user","content": question}]
-        )
-        sql = sql_msg.content[0].text.strip().rstrip(";")
+Return only SQL, no explanation.""",
+            question, max_tokens=512
+        ).rstrip(";")
         try:
-            result = spark.sql(sql.replace("silver_documents", f"{CATALOG}.silver.documents")
-                               .replace("gold_truck_summary", f"{CATALOG}.gold.truck_summary"))
+            result = spark.sql(sql)
             context_parts.append(f"SQL: {sql}\nResults:\n{result.toPandas().to_string()}")
         except Exception as e:
             context_parts.append(f"SQL error: {e}")
@@ -62,14 +68,11 @@ Return only SQL.""",
             context_parts.append(f"[{meta['filename']}]\n{doc}")
 
     context = "\n\n---\n\n".join(context_parts) or "No data found."
-    answer = client_ai.messages.create(
-        model=MODEL, max_tokens=1024,
-        system="You are FleetOS. Answer using only the data below. No hallucinations.",
-        messages=[{"role":"user","content": f"Data:\n{context}\n\nQuestion: {question}"}]
+    return nim(
+        "You are FleetOS. Answer using only the data below. No hallucinations.",
+        f"Data:\n{context}\n\nQuestion: {question}"
     )
-    return answer.content[0].text.strip()
 
 # COMMAND ----------
 # Test it
-question = "Which truck has the highest maintenance cost?"
-print(fleet_query(question))
+print(fleet_query("Which truck has the highest maintenance cost?"))
