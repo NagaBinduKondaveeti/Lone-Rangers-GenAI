@@ -1,8 +1,10 @@
 """ChromaDB vector store with sentence-transformers embeddings."""
-import threading
+import os, threading
 import chromadb
 from chromadb.utils import embedding_functions
-from config import CHROMA_PATH
+
+# Resolve Chroma path from this file's location — avoids CWD-relative import issues
+CHROMA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "chroma")
 
 _lock       = threading.Lock()
 _client     = None

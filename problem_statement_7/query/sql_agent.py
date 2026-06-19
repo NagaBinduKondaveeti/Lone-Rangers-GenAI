@@ -1,7 +1,10 @@
 """Generate and execute DuckDB SQL from natural language via LLaMA-3.1-70B."""
-import duckdb
+import os, duckdb
 from openai import OpenAI
-from config import NVIDIA_API_KEY, NVIDIA_BASE_URL, MODEL, DB_PATH
+from config import NVIDIA_API_KEY, NVIDIA_BASE_URL, MODEL
+
+# Resolve DB path from this file's location — avoids CWD-relative import issues
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "fleet.db")
 
 client = OpenAI(api_key=NVIDIA_API_KEY, base_url=NVIDIA_BASE_URL)
 
