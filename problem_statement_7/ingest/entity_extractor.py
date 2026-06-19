@@ -18,16 +18,20 @@ def _parse_date(raw):
     if not raw: return None
     for fmt in ('%B %d, %Y','%m/%d/%Y','%Y-%m-%d','%b %d, %Y'):
         try: return datetime.strptime(raw.strip(), fmt).strftime('%Y-%m-%d')
-        except: pass
+        except Exception: pass
     return None
 
 def _amt(raw):
     if not raw: return None
     try: return float(str(raw).replace('$','').replace(',','').strip())
-    except: return None
+    except Exception: return None
 
 def _classify(text):
     t = text.upper()
+    # BILL OF SALE must come before CERTIFICATE OF TITLE — BOS footer says
+    # "is not a certificate of title" which would otherwise trigger the title check
+    if 'BILL OF SALE' in t:
+        return 'bill_of_sale_sale' if ('(SALE)' in t or 'SALE\nMOTOR' in t) and 'PURCHASE' not in t else 'bill_of_sale_purchase'
     if 'CERTIFICATE OF TITLE' in t:                   return 'certificate_of_title'
     if 'COMMERCIAL DRIVER LICENSE' in t:               return 'cdl'
     if 'INSURANCE IDENTIFICATION CARD' in t or 'AUTOMOBILE INSURANCE' in t: return 'insurance'
@@ -35,24 +39,45 @@ def _classify(text):
     if 'INTERNATIONAL FUEL TAX AGREEMENT' in t or 'IFTA' in t: return 'ifta_return'
     if 'HEAVY HIGHWAY VEHICLE USE TAX' in t or 'FORM 2290' in t or ('OMB' in t and '2290' in t): return 'form_2290'
     if 'EQUIPMENT LEASE AGREEMENT' in t or 'MOTOR VEHICLE / EQUIPMENT LEASE' in t: return 'lease_agreement'
-    if 'BILL OF SALE' in t:
-        return 'bill_of_sale_sale' if ('(SALE)' in t or 'SALE\nMOTOR' in t) and 'PURCHASE' not in t else 'bill_of_sale_purchase'
     if 'FUEL' in t and 'RECEIPT' in t:                 return 'fuel_receipt'
     if 'INVOICE' in t:                                 return 'maintenance_invoice'
     return 'unknown'
 
 def _bill_of_sale(text):
-    vins   = VIN_RE.findall(text)
-    dates  = DATE_RE.findall(text)
-    amts   = re.findall(r'\$([\d,]+\.?\d{0,2})', text)
+    vins  = VIN_RE.findall(text)
+    dates = DATE_RE.findall(text)
+    # Purchase price: first $ amount before "CONSIDERATION" section
+    amt_m = re.search(r'TOTAL PURCHASE PRICE\s*\n[^\$\n]*\$([\d,]+\.?\d{0,2})', text) or \
+            re.search(r'\$([\d,]+\.?\d{0,2})(?=\s*\(.*?dollars)', text) or \
+            re.search(r'\$([\d,]+\.?\d{0,2})', text)
+    # Seller/buyer from the columnar header block
+    hdr = re.search(r'SELLER\s+BUYER\n([^\n]+)', text)
+    seller_name = buyer_name = None
+    if hdr:
+        combined = hdr.group(1)
+        if 'Sunflower' in combined:
+            seller_name = combined.split('Sunflower')[0].strip() or None
+            buyer_name  = 'Sunflower Freight Lines LLC'
+        else:
+            seller_name = combined.strip() or None
+    # Year / make / model from vehicle description block
+    yr_m    = _first(r'YEAR\s+(\d{4})', text)
+    make_m  = _first(r'MAKE\s+([A-Za-z]+)', text)
+    model_m = _first(r'MODEL\s+([A-Za-z0-9\s]+?)\s+BODY', text)
+    odo_raw = _first(r'ODOMETER[^\d]*(\d[\d,]+)', text)
     return {
-        'truck_unit':   _first(r'Fleet Unit No\.\s*(\d+)', text) or _first(r'Unit\s*[:#]\s*(\d+)', text),
+        'truck_unit':   _first(r'Fleet Unit No\.\s*(\d+)', text) or _first(r'Truck\s+(\d+)', text),
         'doc_number':   _first(r'Document No\.\s*([A-Z0-9\-]+)', text),
         'date':         _parse_date(dates[0]) if dates else None,
-        'amount_total': _amt(amts[0]) if amts else None,
+        'amount_total': _amt(amt_m.group(1)) if amt_m else None,
         'vin':          vins[0] if vins else None,
-        'buyer_name':   _first(r'Buyer[:\s]+([A-Za-z\s,\.]+?)(?:\n|Phone)', text),
-        'seller_name':  _first(r'Seller[:\s]+([A-Za-z\s,\.]+?)(?:\n|Phone)', text),
+        'year':         int(yr_m) if yr_m else None,
+        'make':         make_m,
+        'model':        model_m.strip() if model_m else None,
+        'color':        _first(r'COLOR\s+([A-Za-z]+)', text),
+        'odometer':     int(odo_raw.replace(',','')) if odo_raw else None,
+        'buyer_name':   buyer_name,
+        'seller_name':  seller_name,
     }
 
 def _cdl(text):
@@ -61,7 +86,10 @@ def _cdl(text):
            _first(r'SIGNATURE OF LICENSEE\s*\n([A-Za-z ]+)', text)
     # Dates are on the line AFTER "3 DOB 4a ISS 4b EXP"
     dm   = re.search(r'3 DOB 4a ISS 4b EXP\n(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{2}/\d{4})\s+(\d{2}/\d{2}/\d{4})', text)
+    # truck_unit embedded in footer: "FLEET 84" or "/ FLEET 62"
+    unit = _first(r'FLEET\s+(\d+)\s*$', text, flags=re.IGNORECASE | re.MULTILINE)
     return {
+        'truck_unit':       unit,
         'driver_name':       name,
         'driver_license_no': _first(r'\b([A-Z]\d{2}-\d{2}-\d{4})\b', text),
         'date':              _parse_date(dm.group(2)) if dm else None,
@@ -73,9 +101,13 @@ def _insurance(text):
     vins  = VIN_RE.findall(text)
     unit  = _first(r'UNIT\s*[#\s]*(\d+)', text)
     limit = _first(r'\$([\d,]+(?:\.\d{2})?)\s*Combin', text) or _first(r'LIABILITY LIMIT\s+\$([\d,]+)', text)
+    # Policy number appears in the footer as "Policy No. GWCA-KS-77 04188"
+    # It also appears as the first token on the line after the POLICY NUMBER header
+    policy = _first(r'Policy No\.\s+([A-Z0-9\-]+(?:\s+[A-Z0-9\-]+)?)', text) or \
+             _first(r'POLICY NUMBER[^\n]*\n([A-Z0-9\-]+(?:\s+[A-Z0-9\-]+)?)', text)
     return {
         'truck_unit':     unit,
-        'policy_no':      _first(r'POLICY NUMBER\s+([A-Z0-9\-\s]+?)(?:\n|COVERAGE)', text),
+        'policy_no':      policy,
         'date':           _parse_date(dates[0]) if dates else None,
         'expiry_date':    _parse_date(dates[1]) if len(dates) > 1 else None,
         'vin':            vins[0] if vins else None,
@@ -87,7 +119,6 @@ def _insurance(text):
 def _invoice(text):
     lines  = [l.strip() for l in text.split('\n') if l.strip()]
     vendor = lines[0] if lines else None
-    # Unit appears in PO number (PO-{unit}-{seq}) or after table header "I\n{unit}"
     unit   = (_first(r'PO\s*NO\.\s+PO-(\d+)-', text) or
               _first(r'UNIT\s+#\s+CATEGORY[^\n]*\nI\n(\d+)', text) or
               _first(r'\nI\n(\d+)\s+\w', text) or
@@ -127,7 +158,7 @@ def _title(text):
     makes = ['Peterbilt','Kenworth','Freightliner','International','Volvo','Mack','Western Star']
     yr_mk = re.search(r'(\d{4})\s+(' + '|'.join(makes) + ')', text)
     model = _first(r'(?:' + '|'.join(makes) + r')\s+([A-Z0-9]+)', text)
-    odo   = _first(r'ODOMETER[^\d]*([\d,]+)', text)
+    odo   = _first(r'ODOMETER[^\d]*(\d[\d,]+)', text)
     return {
         'vin':      vins[0] if vins else None,
         'title_no': _first(r'TITLE NUMBER\s+([A-Z0-9]+)', text),
@@ -141,7 +172,6 @@ def _title(text):
 
 def _ifta(text):
     dates = DATE_RE.findall(text)
-    gals  = re.findall(r'([\d,]+\.?\d*)\s*(?:gal|GAL)', text)
     tax   = _first(r'TOTAL TAX DUE\s+\$([\d,]+\.?\d{0,2})', text) or \
             _first(r'Tax Due\s+\$([\d,]+\.?\d{0,2})', text)
     return {
